@@ -1,17 +1,16 @@
-import pandas as pd
 import numpy as np
-import time
-import SpatialTables as spd
+import pandas as pd
 
+import SpatialTables as spd
+from AddSpatialID import AddBGID, AddTRACTID, AddNeighID
+from CaptureRate import ComputeCapturRate
 from DefineDirectory import directory_october_counts, directory_GIS, directory_birth, \
     directory_results, directory_yields, \
     directory_studentsbuildings, directory_foreclosures, directory_units
-from CaptureRate import ComputeCapturRate
+from Forecast import forecast
 from SurvivalRate import ComputeMobRate
 from calibrationAdjustments import yieldsAdjustment, mobRateAdjustments, capRateAdjustments
 from studentsYields_temp import buildingsYields
-from Forecast import forecast
-from AddSpatialID import AddBGID, AddTRACTID, AddNeighID
 
 # global assumptions
 year_avg_first = 2014
