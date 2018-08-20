@@ -16,7 +16,7 @@ from studentsYields_temp import buildingsYields
 year_avg_first = 2014
 year_avg_last = 2016
 year_forecast0 = 2018
-year_forecast1 = 2021
+year_forecast1 = 2023
 
 # basic crs
 crs0 = {'init': u'epsg:4326'}
@@ -43,7 +43,7 @@ bgGeo = bgGeo[bgGeo.county == '08031']
 
 # birth count by block group
 print("loading birth counts by block group")
-birthBG = pd.read_csv(directory_birth + 'bg_Denver_Births_1995_2016.txt', sep="\t")
+birthBG = pd.read_csv(directory_birth + 'bg_Denver_Births_1995_2018_pred.txt', sep="\t")
 birthBG['GEOID'] = birthBG['Block_Grou'].apply(lambda x: '0' + str(x))
 birthBG = birthBG.set_index('GEOID')
 
@@ -64,8 +64,8 @@ NeighBG = AddNeighID(bgGeo2, GeoNBHD, ['NBHD_ID'])
 #collect all students in buildings for all available years
 print("loading all students associated with residential data")
 d_list = []
-for y in np.arange(2005, 2017):
-    StudentsBuildings = pd.read_csv(directory_studentsbuildings + 'studentsBuildings_' + str(y) + '.csv')
+for y in np.arange(2005, 2018):
+    StudentsBuildings = pd.read_csv(directory_studentsbuildings + 'studentsBuildings_recode' + str(y) + '.csv')
     d_list.append(StudentsBuildings)
 StudentsBuildings = pd.concat(d_list)
 StudentsBuildings['Year'] = StudentsBuildings.Year.astype(str)
@@ -74,14 +74,14 @@ StudentsBuildings = StudentsBuildings.drop_duplicates(['STUDENTNUM', 'Year'])
 
 # collect students living in foreclosed properties
 print("loading foreclosed units")
-studentsfore = pd.read_csv(directory_foreclosures + 'studentsForeclosed_noApt.csv')
+studentsfore = pd.read_csv(directory_foreclosures +'studentsForeclosed_noAPT_test_recode.csv')
 studentsfore['FORE_ID'] = 1
 studentsfore['Year'] = studentsfore['Year'].apply(lambda x: str(x)[0:4])
 studentsfore['STUDENTNUM'] = studentsfore['STUDENTNUM'].astype(str)
-studentsfore = studentsfore[['FORE_ID', 'STUDENTNUM', 'Year']].drop_duplicates(['STUDENTNUM', 'Year'])
+studentsfore = studentsfore[['FORE_ID', 'STUDENTNUM', 'Year', 'adjGradeCr', 'SCHEDNUM']].drop_duplicates(['STUDENTNUM', 'Year'])
 
 # load and adjust yields
-year_yields = 2016
+year_yields = 2017
 print("loading yields data using year %d for reference" %year_yields)
 yields = pd.read_csv(directory_yields + 'report_all_NHD_' + str(year_yields) + '.csv')
 yields['rate'] = yields['Students'] / yields['built-out']
@@ -89,7 +89,7 @@ yields = yields[yields['built-out'] > 0]
 
 # load units counts by type and block group
 print("loading units counts")
-buildingsYear = pd.read_csv(directory_units + 'AllbuidlingsBlockGroup.csv')
+buildingsYear = pd.read_csv(directory_units + 'all_buidlingsBlockGroup_test_recode_2030_aip.csv')
 buildingsYear['GEOID'] = buildingsYear['GEOID'].apply(lambda x: '0' + str(x))
 buildingsYear['TRACT_ID'] = buildingsYear['GEOID'].apply(lambda x: x[:-1])
 buildings = pd.merge(buildingsYear, NeighBG[['GEOID', 'NBHD_ID']], on='GEOID')
@@ -107,10 +107,12 @@ bYields = buildingsYields(buildings, yields)
 # compute capture rate
 print("Compute capture rates")
 year_first = 2005
-year_last = 2016
+year_last = 2017
 
 KStudents = GeoStudents[GeoStudents.adjGradeCr == '00']
-captureRate = ComputeCapturRate(KStudents, birthBG, bYields, StudentsBuildings, studentsfore, year_first, year_last + 1)
+captureRate = ComputeCapturRate(KStudents, birthBG, bYields[bYields.adjGradeCr == '00'], StudentsBuildings,
+                                studentsfore[studentsfore.adjGradeCr == '00'].drop('adjGradeCr', axis=1),
+                                year_first, year_last + 1)
 
 # remove extreme values
 special_tract1 = ['08031004002', '08031006804']
@@ -120,16 +122,20 @@ captureRate = captureRate[(~captureRate.rate.isin([np.inf])) &
                           (((captureRate.rate > 0.3) & (captureRate.rate < 1.5))
                            | (captureRate.TRACT_ID.isin(special_tract1)))]
 
+print(captureRate[captureRate.TRACT_ID =='08031008389'])
+print(captureRate[captureRate.TRACT_ID =='08031008391'])
+print(captureRate[captureRate.TRACT_ID =='08031008390'])
+
 caprate = captureRate[(captureRate.year >= 2014) & (captureRate.year <= 2016)].groupby('TRACT_ID')[['rate']].mean()
 
 # compute survival rates
 print("Compute survival rates")
-mobData = ComputeMobRate(GeoStudents, StudentsBuildings, studentsfore)
+mobData = ComputeMobRate(GeoStudents, StudentsBuildings,
+                         studentsfore[studentsfore.adjGradeCr != '00'].drop('adjGradeCr', axis=1))
 
 # Adjust survival and capture rate for calibration
 print("Adjustments for calibration")
 caprate = capRateAdjustments(caprate)
-
 
 mobData = mobRateAdjustments(mobData)
 mobData['year'] = mobData.Year.astype('int32')
@@ -138,18 +144,17 @@ mobDataAvg = mobData[(mobData.year >= 2014) & (mobData.year <= 2016)].groupby(['
 # last observed data
 last_obs = GeoStudents[GeoStudents.Year == str(year_forecast0 - 1)].groupby(['adjGradeCr', 'GEOID'])[['adjGradeCr']]\
                     .size().to_frame('Count')
+last_obs.to_csv(directory_results + 'enrollment_base.csv')
 
 # run the forecast
 print("running forecast from year %d to year %d" %(year_forecast0, year_forecast1))
 f_list = []
 for year in np.arange(year_forecast0, year_forecast1 + 1):
     print("Forecasting year " + str(year))
-
     d = forecast(year, mobDataAvg, caprate, bYields, last_obs, birthBG)
     d['year'] = year
     last_obs = d.groupby(['adjGradeCr', 'GEOID'])[['Forecast']].sum().fillna(0)
     last_obs.columns = ['Count']
-    u = last_obs.reset_index()
     f_list.append(d)
 results = pd.concat(f_list)
 results['Enrollment'] = results['Forecast']
@@ -158,7 +163,13 @@ results['Enrollment'] = results['Forecast']
 results = results[results.adjGradeCr != 'EC']
 
 # export data to outfile
-results[['adjGradeCr', 'GEOID', 'Enrollment', 'year']].to_csv(directory_results + 'forecast_testingSPD_3 .csv')
+#results[['adjGradeCr', 'GEOID', 'Enrollment', 'year']].to_csv(directory_results + 'forecast_testing_2023_aug_extended.csv')
+#caprate.to_csv(directory_results + 'capture_rates_06062-18.csv')
+#mobDataAvg.to_csv(directory_results + 'survival_rates_06062-18.csv')
+bYields.to_csv(directory_results + 'buildings_yields_082018_aip.csv')
+#captureRate.to_csv(directory_results + 'capture_rates_years_06062-18.csv')
+#mobData.to_csv(directory_results + 'survival_rates_years_06062-18.csv')
+
 
 
 

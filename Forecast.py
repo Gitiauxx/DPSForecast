@@ -45,21 +45,24 @@ def forecast(year, mobDataAvg, caprate, buildingsYields, last_obs, birthBG):
     newBuildings = buildingsYields[(buildingsYields.CCYRBLT >= year - 5) & (buildingsYields.CCYRBLT <= year)
                                    & (buildingsYields.adjGradeCr == '00')]
 
-    newBuildings.loc[(newBuildings.foreclosed == 0), 'CCYRBLT'] = year
-    newBuildings.loc[(newBuildings.foreclosed == 1), 'CCYRBLT'] = year
+    newBuildings.loc[(newBuildings.CCYRBLT >= year - 5) & (newBuildings.CCYRBLT <= year)
+                     & (newBuildings.foreclosed == 0), 'CCYRBLT'] = year
+    newBuildings.loc[(newBuildings.CCYRBLT <= year) & (newBuildings.CCYRBLT >= year - 5)
+                     & (buildingsYields.foreclosed == 1), 'CCYRBLT'] = year
     newBuildings = newBuildings[newBuildings.CCYRBLT == year]
 
     newBuildings = newBuildings.groupby('GEOID')[['New_Students']].sum()
-
     KEnrollment = KEnrollment.join(newBuildings[['New_Students']], how='outer')
 
     KEnrollment['New_Students'] = KEnrollment['New_Students'].fillna(0)
     KEnrollment['Forecast'] = KEnrollment['Forecast_K'].astype(float)
     KEnrollment['Forecast'] = KEnrollment['New_Students'].astype(float) + KEnrollment['Forecast']
 
+
     # last observed or simulated years
     Enrollment = last_obs
     Enrollment = Enrollment.reset_index()
+
 
     Enrollment['TRACT_ID'] = Enrollment.GEOID.apply(lambda x: x[:-1])
     Enrollment = pd.merge(Enrollment, mobDataAvg, left_on=['TRACT_ID', 'adjGradeCr'], right_index=True, how='left')
@@ -72,8 +75,7 @@ def forecast(year, mobDataAvg, caprate, buildingsYields, last_obs, birthBG):
     Enrollment = Enrollment.set_index(['adjGradeCr', 'GEOID'])
 
     ## add students in new buildings
-    newBuildings2 = buildingsYields[(buildingsYields.CCYRBLT >= year ) & (buildingsYields.CCYRBLT <= year)
-                                    & (buildingsYields.adjGradeCr != '00')]
+    newBuildings2 = buildingsYields[(buildingsYields.CCYRBLT == year) & (buildingsYields.adjGradeCr != '00')]
     newBuildings2 = newBuildings2.groupby(['adjGradeCr', 'GEOID'])[['New_Students']].sum()
 
     Enrollment = Enrollment.join(newBuildings2[['New_Students']], how='outer')

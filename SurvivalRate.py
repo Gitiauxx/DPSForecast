@@ -3,8 +3,6 @@ import pandas as pd
 def mobRate(df):
 
     df['CountGrade1'] = df.groupby('TRACT_ID').Count1.shift(1)
-    #df['MR'] = df['Count'] / df['CountGrade1']
-
     return df
 
 
@@ -35,7 +33,6 @@ def RemoveMovers(students, StudentsBuildings):
     students1 = pd.merge(students, StudentsBuildings[['STUDENTNUM', 'Year', 'CCYRBLT', 'PROP_CLASS']],
                          on=['STUDENTNUM', 'Year'], how='inner')
 
-    # comment: need to change to <=
     return students1[students1.CCYRBLT <= students1.Year.astype('int32') - 1]
 
 

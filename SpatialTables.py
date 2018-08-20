@@ -2,7 +2,7 @@ from osgeo import ogr
 import numpy as np
 from shapely.geos import lgeos
 import pandas as pd
-from numba import jit
+from numba import jit, typeof
 from rtree import index
 
 GEOS_HANDLE = lgeos.geos_handle
@@ -16,7 +16,7 @@ GEOSGeom_getCoordSeq_ctypes = lgeos._lgeos.GEOSGeom_getCoordSeq_r
 GEOSEnvelope_ctypes = lgeos._lgeos.GEOSEnvelope_r
 GEOSGetExteriorRing_ctypes = lgeos._lgeos.GEOSGetExteriorRing_r
 GEOSGetCentroid = lgeos._lgeos.GEOSGetCentroid_r
-
+GEOSBuffer = lgeos._lgeos.GEOSBuffer_r
 
 def shape_to_geodata(fields_list, shapefile):
     # load shapefile
@@ -66,7 +66,7 @@ def get_coord_array(array_geom):
 
 def get_centroid(p_geom):
     n = p_geom.shape[0]
-    centroid = np.zeros(n, dtype=np.intc)
+    centroid = np.zeros(n)
 
     for i in np.arange(n):
         centroid[i] = GEOSGetCentroid(GEOS_HANDLE, int(p_geom[i]))
@@ -114,8 +114,11 @@ def point_in_boundingbox(a_geom, idx):
     for i in np.arange(n):
         count = 0
         for j in idx.intersection((coord_array[i, 0], coord_array[i, 1])):
-            res[i, count] = j + 1
-            count += 1
+            if count <= 9:
+                res[i, count] = j + 1
+                count += 1
+            else:
+                continue
     return res
 
 
@@ -161,4 +164,30 @@ def centroid_table(table):
     table['geometry'] = centroid
 
     return table
+
+def buffer(pol, size):
+    return GEOSBuffer(GEOS_HANDLE, int(pol), size, 16)
+
+def buffer_geom(pol_array, size):
+    n = pol_array.shape[0]
+    res = np.zeros(n)
+
+    for i in np.arange(n):
+        res[i] = buffer(pol_array[i], size)
+
+    return res
+
+
+if __name__ == '__main__':
+
+    from DefineDirectory import directory_october_counts, directory_GIS, directory_birth, \
+        directory_parcels, directory_assessor, directory_yields, \
+        directory_studentsbuildings, directory_foreclosures, directory_units
+
+    import time
+    bg = shape_to_geodata(['SCHEDNUM'], directory_parcels + 'parcels.shp')
+    print(typeof(np.array(bg['geometry'])[0]))
+    s = time.time()
+    bg['geomb'] = buffer_geom(np.array(bg['geometry']), 0.005)
+    print( time.time() - s)
 
