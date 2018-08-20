@@ -63,7 +63,7 @@ def capRateAdjustments(caprate):
         ['08031006809', '08031006804', '08031006810'], 'rate']
 
     # Stapleton North has same capture rate as Stapleton South
-    caprate.loc['08031004107', 'rate'] = caprate.loc['08031004106', 'rate']
+    caprate.loc['08031004106', 'rate'] = caprate.loc['08031004107', 'rate']
 
     # Green Valley Ranch East has same capture rate as Green Valley Ranch West
     caprate.loc['08031008388', 'rate'] = caprate.loc['08031008389', 'rate']

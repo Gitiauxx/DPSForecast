@@ -89,7 +89,7 @@ yields = yields[yields['built-out'] > 0]
 
 # load units counts by type and block group
 print("loading units counts")
-buildingsYear = pd.read_csv(directory_units + 'all_buidlingsBlockGroup_test_recode_2030_aip.csv')
+buildingsYear = pd.read_csv(directory_units + 'all_buidlingsBlockGroup_test_recode_2023_extended.csv')
 buildingsYear['GEOID'] = buildingsYear['GEOID'].apply(lambda x: '0' + str(x))
 buildingsYear['TRACT_ID'] = buildingsYear['GEOID'].apply(lambda x: x[:-1])
 buildings = pd.merge(buildingsYear, NeighBG[['GEOID', 'NBHD_ID']], on='GEOID')
@@ -163,10 +163,10 @@ results['Enrollment'] = results['Forecast']
 results = results[results.adjGradeCr != 'EC']
 
 # export data to outfile
-#results[['adjGradeCr', 'GEOID', 'Enrollment', 'year']].to_csv(directory_results + 'forecast_testing_2023_aug_extended.csv')
+results[['adjGradeCr', 'GEOID', 'Enrollment', 'year']].to_csv(directory_results + 'forecast_testing_2023_aug_extended2.csv')
 #caprate.to_csv(directory_results + 'capture_rates_06062-18.csv')
 #mobDataAvg.to_csv(directory_results + 'survival_rates_06062-18.csv')
-bYields.to_csv(directory_results + 'buildings_yields_082018_aip.csv')
+#bYields.to_csv(directory_results + 'buildings_yields_07102018_turnover.csv')
 #captureRate.to_csv(directory_results + 'capture_rates_years_06062-18.csv')
 #mobData.to_csv(directory_results + 'survival_rates_years_06062-18.csv')
 
